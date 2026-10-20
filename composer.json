@@ -1,0 +1,38 @@
+{
+  "name": "codecs-php/codecs",
+  "description": "In-process AVIF and JPEG-XL image decoding and encoding for PHP, backed by statically linked libavif and libjxl",
+  "type": "php-ext",
+  "license": "Apache-2.0",
+  "keywords": ["avif", "jxl", "jpeg-xl", "heif", "heic", "image", "codec", "libavif", "libjxl"],
+  "homepage": "https://github.com/FojleRabbiRabib/codecs-php",
+  "authors": [
+    {
+      "name": "Fojle Rabbi (Rabib)",
+      "role": "Lead"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/FojleRabbiRabib/codecs-php/issues",
+    "source": "https://github.com/FojleRabbiRabib/codecs-php",
+    "docs": "https://github.com/FojleRabbiRabib/codecs-php/blob/main/docs/usage.md"
+  },
+  "php-ext": {
+    "extension-name": "codecs",
+    "download-url-method": ["pre-packaged-binary", "composer-default"]
+  },
+  "require": {
+    "php": ">=8.3"
+  },
+  "require-dev": {
+    "phpstan/phpstan": "^2.1",
+    "squizlabs/php_codesniffer": "^3.13"
+  },
+  "config": {
+    "allow-plugins": {},
+    "sort-packages": true
+  },
+  "scripts": {
+    "lint:php": "phpcs",
+    "analyse": "phpstan analyse"
+  }
+}

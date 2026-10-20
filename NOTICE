@@ -1,0 +1,27 @@
+codecs-php — In-process modern image codecs (AVIF, JPEG-XL, HEIF) for PHP
+https://github.com/FojleRabbiRabib/codecs-php
+
+Copyright 2026 Fojle Rabbi (Rabib)
+
+This product includes software developed by the following projects, vendored
+and linked from pinned, hash-verified upstream releases:
+
+  libavif
+  https://github.com/AOMediaCodec/libavif
+  Copyright 2019 Joe Drago and the AOMediaCodec contributors
+  Licensed under the BSD 2-Clause License.
+
+  dav1d
+  https://code.videolan.org/videolan/dav1d
+  Copyright 2018-2026 VideoLAN and dav1d authors
+  Licensed under the BSD 2-Clause License.
+
+  libjxl (JPEG XL reference implementation)
+  https://github.com/libjxl/libjxl
+  Copyright the JPEG XL Project Authors
+  Licensed under the BSD 3-Clause License.
+
+  Highway (SIMD library used by libjxl)
+  https://github.com/google/highway
+  Copyright Google LLC
+  Licensed under the Apache License, Version 2.0.
