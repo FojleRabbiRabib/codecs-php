@@ -11,6 +11,14 @@ PHP_ARG_ENABLE([codecs],
 
 if test "$PHP_CODECS" != "no"; then
 
+  CODECS_VENDOR_INSTALL="${CODECS_VENDOR_INSTALL:-$abs_srcdir/vendor-build/install}"
+  if test ! -f "$CODECS_VENDOR_INSTALL/lib/libavif.a"; then
+    AC_MSG_ERROR([vendored libavif.a missing at $CODECS_VENDOR_INSTALL/lib/libavif.a; run tools/build-deps.sh first])
+  fi
+
+  PHP_ADD_INCLUDE([$abs_srcdir])
+  PHP_ADD_INCLUDE([$CODECS_VENDOR_INSTALL/include])
+
   CODECS_HARDEN_CFLAGS="-fstack-protector-strong -fvisibility=hidden"
 
   AC_MSG_CHECKING([whether the C toolchain supports -fstack-clash-protection])
@@ -41,8 +49,13 @@ if test "$PHP_CODECS" != "no"; then
     x86_64:*|amd64:*) CODECS_HARDEN_CFLAGS="$CODECS_HARDEN_CFLAGS -fcf-protection=full" ;;
   esac
 
-  PHP_NEW_EXTENSION([codecs], [codecs.c], [$ext_shared],,
+  PHP_NEW_EXTENSION([codecs], [codecs.c codecs_exception.c codecs_image.c codecs_options.c codecs_avif.c], [$ext_shared],,
     [-Wall -Wextra -Werror -Wformat -Wformat-security $CODECS_HARDEN_CFLAGS])
+
+  CODECS_STATIC_LIBS="$CODECS_VENDOR_INSTALL/lib/libavif.a"
+  if test -f "$CODECS_VENDOR_INSTALL/lib/libdav1d.a"; then
+    CODECS_STATIC_LIBS="$CODECS_STATIC_LIBS $CODECS_VENDOR_INSTALL/lib/libdav1d.a"
+  fi
 
   case "$host_os" in
     darwin*)
@@ -50,14 +63,14 @@ if test "$PHP_CODECS" != "no"; then
       if test ! -f "$CODECS_EXPORTS_LIST"; then
         AC_MSG_ERROR([codecs.exp not found at $CODECS_EXPORTS_LIST; it is part of the extension sources])
       fi
-      CODECS_SHARED_LIBADD="$CODECS_SHARED_LIBADD -Wl,-dead_strip -Wl,-bind_at_load -Wl,-undefined,dynamic_lookup -Wl,-exported_symbols_list,$CODECS_EXPORTS_LIST"
+      CODECS_SHARED_LIBADD="$CODECS_STATIC_LIBS -lm -lpthread $CODECS_SHARED_LIBADD -Wl,-dead_strip -Wl,-bind_at_load -Wl,-undefined,dynamic_lookup -Wl,-exported_symbols_list,$CODECS_EXPORTS_LIST"
       ;;
     *)
       CODECS_LINK_SCRIPT="$abs_srcdir/codecs.map"
       if test ! -f "$CODECS_LINK_SCRIPT"; then
         AC_MSG_ERROR([codecs.map not found at $CODECS_LINK_SCRIPT; it is part of the extension sources])
       fi
-      CODECS_SHARED_LIBADD="$CODECS_SHARED_LIBADD -Wl,--version-script=$CODECS_LINK_SCRIPT -Wl,--gc-sections -Wl,-z,relro,-z,now,-z,noexecstack"
+      CODECS_SHARED_LIBADD="$CODECS_STATIC_LIBS -lm -lpthread -ldl $CODECS_SHARED_LIBADD -Wl,--version-script=$CODECS_LINK_SCRIPT -Wl,--gc-sections -Wl,-z,relro,-z,now,-z,noexecstack"
       ;;
   esac
 

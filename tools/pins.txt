@@ -1,0 +1,6 @@
+# codecs-php vendored dependency pins and verified SHA-256 digests.
+# Reviewed as a standalone file; tools/fetch-codecs.sh reads it.
+# Format: <name> <version> <tarball-sha256> <license-relpath> <license-sha256> <url>
+
+libavif 1.4.2 2b645287340ba5a631d268b551dc2d72bd73ac33335962dd36dcdb6d8366921d LICENSE 165abf92cc04b39e80d29cadea7a6a7e8fddf59407d4ad2616507a7ebe8216f9 https://github.com/AOMediaCodec/libavif/archive/refs/tags/v1.4.2.tar.gz
+dav1d 1.5.4 a1d5b63d2d38ec9bd03acf643caa51fa22edd1e89c5a109c4807717216bbec07 COPYING dd92c3c2247c5651606fc23a5e2d6a1ebc5ace9a3e49cbde0e12f05ad1cb1ee5 https://code.videolan.org/videolan/dav1d/-/archive/1.5.4/dav1d-1.5.4.tar.gz

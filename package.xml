@@ -35,11 +35,28 @@ Initial 0.1.0 development scaffold.
    <file role="src" name="php_codecs.h"/>
    <file role="src" name="codecs_internal.h"/>
    <file role="src" name="codecs.c"/>
+   <file role="src" name="codecs_avif.c"/>
+   <file role="src" name="codecs_exception.c"/>
+   <file role="src" name="codecs_image.c"/>
+   <file role="src" name="codecs_options.c"/>
    <file role="src" name="codecs.stub.php"/>
    <file role="src" name="codecs_arginfo.h"/>
    <file role="src" name="codecs.map"/>
    <file role="src" name="codecs.exp"/>
    <file role="src" name="composer.json"/>
+   <file role="src" name="tools/pins.txt"/>
+   <file role="src" name="tools/fetch-codecs.sh"/>
+   <file role="src" name="tools/build-deps.sh"/>
+   <file role="src" name="tools/dump-pixels.c"/>
+   <file role="src" name="tools/test-phpt.php"/>
+   <file role="test" name="tests/quality/fidelity.php"/>
+   <file role="test" name="tests/phpt/001-version.phpt"/>
+   <file role="test" name="tests/phpt/002-image-from-pixels.phpt"/>
+   <file role="test" name="tests/phpt/003-avif-decode-basic.phpt"/>
+   <file role="test" name="tests/phpt/004-avif-decode-ceilings.phpt"/>
+   <file role="test" name="tests/phpt/005-probe.phpt"/>
+   <file role="test" name="tests/phpt/006-stream-decode.phpt"/>
+   <file role="test" name="tests/phpt/007-options-defaults.phpt"/>
    <file role="data" name=".clang-format"/>
    <file role="data" name=".editorconfig"/>
    <file role="data" name=".gitattributes"/>

@@ -29,8 +29,10 @@ Makefile.objects
 missing
 mkinstalldirs
 run-tests.php
+/tools/dump-pixels
 
 /vendor-src/
+/vendor-build/
 /vendor-data/
 /vendor/
 /dist/
