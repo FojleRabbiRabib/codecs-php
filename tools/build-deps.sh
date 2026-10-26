@@ -155,6 +155,12 @@ gcc -O2 -Wall -Wextra "$ROOT/tools/dump-pixels.c" \
 	-I"$INSTALL/include" \
 	"$INSTALL/lib/libavif.a" \
 	"$INSTALL/lib/libdav1d.a" \
-	-lm -lpthread -ldl \
+	"$INSTALL/lib/libjxl.a" \
+	"$INSTALL/lib/libjxl_cms.a" \
+	"$INSTALL/lib/libhwy.a" \
+	"$INSTALL/lib/libbrotlienc.a" \
+	"$INSTALL/lib/libbrotlidec.a" \
+	"$INSTALL/lib/libbrotlicommon.a" \
+	-lstdc++ -lm -lpthread -ldl \
 	-o "$ROOT/tools/dump-pixels"
 echo "ok: oracle tool ready at $ROOT/tools/dump-pixels" >&2

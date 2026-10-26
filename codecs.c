@@ -15,6 +15,7 @@
 #include "ext/standard/info.h"
 #include "avif/avif.h"
 #include "dav1d/dav1d.h"
+#include "jxl/decode.h"
 #include "php_codecs.h"
 #include "codecs_internal.h"
 #include "codecs_arginfo.h"
@@ -87,7 +88,11 @@ ZEND_METHOD(Codecs_Codec, versions)
 	add_assoc_string(return_value, "libavif", avifVersion());
 	add_assoc_string(return_value, "dav1d", dav1d_version());
 	add_assoc_string(return_value, "aom", "not_compiled");
-	add_assoc_string(return_value, "libjxl", "not_compiled");
+
+	char jxl_version[32];
+	uint32_t jv = JxlDecoderVersion();
+	snprintf(jxl_version, sizeof(jxl_version), "%u.%u.%u", jv / 1000000, (jv / 1000) % 1000, jv % 1000);
+	add_assoc_string(return_value, "libjxl", jxl_version);
 	add_assoc_string(return_value, "highway", "not_compiled");
 	add_assoc_string(return_value, "libpng", "not_compiled");
 	add_assoc_string(return_value, "zlib", "not_compiled");
@@ -102,10 +107,82 @@ ZEND_METHOD(Codecs_Codec, supports)
 	ZEND_PARSE_PARAMETERS_END();
 
 	zval *case_val = zend_enum_fetch_case_name(Z_OBJ_P(format_zv));
-	if (case_val && strcmp(Z_STRVAL_P(case_val), "Avif") == 0) {
+	if (case_val && (strcmp(Z_STRVAL_P(case_val), "Avif") == 0 || strcmp(Z_STRVAL_P(case_val), "JpegXl") == 0)) {
 		RETURN_TRUE;
 	}
 	RETURN_FALSE;
+}
+
+int codecs_detect_format(const uint8_t *data, size_t size)
+{
+	if (!data || size < 2) {
+		return CODECS_FMT_UNKNOWN;
+	}
+
+	/* Bare JXL codestream signature: FF 0A */
+	if (data[0] == 0xFF && data[1] == 0x0A) {
+		return CODECS_FMT_JXL;
+	}
+
+	/* JXL container: 00 00 00 0C 'JXL ' 0D 0A 87 0A */
+	static const uint8_t jxl_box[12] = {0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A};
+	if (size >= 12 && memcmp(data, jxl_box, 12) == 0) {
+		return CODECS_FMT_JXL;
+	}
+
+	/* ISOBMFF ftyp box with an AVIF/AVIS brand in major_brand or the
+	 * compatible_brands list (MIAF-compliant files may use mif1/miaf/MA1A as
+	 * the major brand with "avif" in compatible_brands). */
+	if (size >= 12 && memcmp(data + 4, "ftyp", 4) == 0) {
+		uint32_t box_size = ((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16) |
+							((uint32_t)data[2] << 8) | (uint32_t)data[3];
+		if (box_size == 0 || box_size > size) {
+			box_size = (uint32_t)size;
+		}
+		for (size_t off = 8; off + 4 <= box_size; off += 4) {
+			if (memcmp(data + off, "avif", 4) == 0 || memcmp(data + off, "avis", 4) == 0) {
+				return CODECS_FMT_AVIF;
+			}
+		}
+	}
+
+	return CODECS_FMT_UNKNOWN;
+}
+
+static codecs_image_object *codecs_dispatch_decode(const uint8_t *data, size_t size, zval *options_zv)
+{
+	int fmt = codecs_detect_format(data, size);
+	if (fmt == CODECS_FMT_JXL) {
+		return codecs_jxl_decode(data, size, options_zv);
+	}
+	if (fmt == CODECS_FMT_AVIF) {
+		return codecs_avif_decode(data, size, options_zv);
+	}
+	if (size == 0) {
+		codecs_throw(codecs_corrupt_data_exception_ce, CODECS_ERR_BITSTREAM, "Cannot decode empty or zero-byte data");
+		return NULL;
+	}
+	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
+				 "Unsupported image format or unrecognized signature");
+	return NULL;
+}
+
+static bool codecs_dispatch_probe(const uint8_t *data, size_t size, zval *return_value)
+{
+	int fmt = codecs_detect_format(data, size);
+	if (fmt == CODECS_FMT_JXL) {
+		return codecs_jxl_probe(data, size, return_value);
+	}
+	if (fmt == CODECS_FMT_AVIF) {
+		return codecs_avif_probe(data, size, return_value);
+	}
+	if (size == 0) {
+		codecs_throw(codecs_corrupt_data_exception_ce, CODECS_ERR_BITSTREAM, "Cannot probe empty or zero-byte data");
+		return false;
+	}
+	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
+				 "Unsupported image format or unrecognized signature");
+	return false;
 }
 
 ZEND_METHOD(Codecs_Codec, decode)
@@ -119,7 +196,7 @@ ZEND_METHOD(Codecs_Codec, decode)
 	Z_PARAM_OBJECT_OR_NULL(options_zv)
 	ZEND_PARSE_PARAMETERS_END();
 
-	codecs_image_object *img = codecs_avif_decode((const uint8_t *)ZSTR_VAL(data), ZSTR_LEN(data), options_zv);
+	codecs_image_object *img = codecs_dispatch_decode((const uint8_t *)ZSTR_VAL(data), ZSTR_LEN(data), options_zv);
 	if (!img) {
 		RETURN_THROWS();
 	}
@@ -164,7 +241,7 @@ ZEND_METHOD(Codecs_Codec, decodeFile)
 		RETURN_THROWS();
 	}
 
-	codecs_image_object *img = codecs_avif_decode((const uint8_t *)ZSTR_VAL(contents), ZSTR_LEN(contents), options_zv);
+	codecs_image_object *img = codecs_dispatch_decode((const uint8_t *)ZSTR_VAL(contents), ZSTR_LEN(contents), options_zv);
 	zend_string_release(contents);
 
 	if (!img) {
@@ -205,7 +282,7 @@ ZEND_METHOD(Codecs_Codec, decodeStream)
 		RETURN_THROWS();
 	}
 
-	codecs_image_object *img = codecs_avif_decode((const uint8_t *)ZSTR_VAL(contents), ZSTR_LEN(contents), options_zv);
+	codecs_image_object *img = codecs_dispatch_decode((const uint8_t *)ZSTR_VAL(contents), ZSTR_LEN(contents), options_zv);
 	zend_string_release(contents);
 
 	if (!img) {
@@ -313,7 +390,7 @@ ZEND_METHOD(Codecs_Codec, probe)
 	Z_PARAM_STR(data)
 	ZEND_PARSE_PARAMETERS_END();
 
-	if (!codecs_avif_probe((const uint8_t *)ZSTR_VAL(data), ZSTR_LEN(data), return_value)) {
+	if (!codecs_dispatch_probe((const uint8_t *)ZSTR_VAL(data), ZSTR_LEN(data), return_value)) {
 		RETURN_THROWS();
 	}
 }
@@ -352,7 +429,7 @@ ZEND_METHOD(Codecs_Codec, probeFile)
 		RETURN_THROWS();
 	}
 
-	bool ok = codecs_avif_probe((const uint8_t *)ZSTR_VAL(contents), ZSTR_LEN(contents), return_value);
+	bool ok = codecs_dispatch_probe((const uint8_t *)ZSTR_VAL(contents), ZSTR_LEN(contents), return_value);
 	zend_string_release(contents);
 
 	if (!ok) {
@@ -389,7 +466,7 @@ ZEND_METHOD(Codecs_Codec, probeStream)
 		RETURN_THROWS();
 	}
 
-	bool ok = codecs_avif_probe((const uint8_t *)ZSTR_VAL(contents), ZSTR_LEN(contents), return_value);
+	bool ok = codecs_dispatch_probe((const uint8_t *)ZSTR_VAL(contents), ZSTR_LEN(contents), return_value);
 	zend_string_release(contents);
 
 	if (!ok) {
@@ -457,11 +534,16 @@ PHP_MINFO_FUNCTION(codecs)
 {
 	(void)zend_module;
 
+	char jxl_ver[32];
+	uint32_t jv = JxlDecoderVersion();
+	snprintf(jxl_ver, sizeof(jxl_ver), "%u.%u.%u", jv / 1000000, (jv / 1000) % 1000, jv % 1000);
+
 	php_info_print_table_start();
 	php_info_print_table_header(2, "codecs support", "enabled");
 	php_info_print_table_row(2, "Extension version", PHP_CODECS_VERSION);
 	php_info_print_table_row(2, "libavif version", avifVersion());
 	php_info_print_table_row(2, "dav1d version", dav1d_version());
+	php_info_print_table_row(2, "libjxl version", jxl_ver);
 	php_info_print_table_end();
 
 	DISPLAY_INI_ENTRIES();

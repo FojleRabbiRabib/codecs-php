@@ -3,8 +3,9 @@
  * Copyright 2026 Fojle Rabbi (Rabib)
  *
  * dump-pixels — oracle tool for byte-identical raw-pixel decode comparison.
- * Compiles against the exact same vendored libavif/libdav1d static libraries.
- * Reads an AVIF file and writes raw 16-bit RGBA bytes to stdout (or file).
+ * Compiles against the exact same vendored static libraries (libavif/libdav1d
+ * and libjxl/highway/brotli/skcms). Reads an AVIF or JXL file and writes raw
+ * 16-bit RGBA bytes to stdout (or file).
  */
 
 #include <stdio.h>
@@ -13,17 +14,11 @@
 #include <stdbool.h>
 #include <string.h>
 #include "avif/avif.h"
+#include "jxl/decode.h"
+#include "jxl/types.h"
 
-int main(int argc, char *argv[])
+static int dump_avif(const char *input_path, uint16_t **pixels_out, size_t *size_out)
 {
-	if (argc < 2) {
-		fprintf(stderr, "Usage: %s <input.avif> [output.raw]\n", argv[0]);
-		return 1;
-	}
-
-	const char *input_path = argv[1];
-	const char *output_path = (argc >= 3) ? argv[2] : NULL;
-
 	avifDecoder *decoder = avifDecoderCreate();
 	if (!decoder) {
 		fprintf(stderr, "FAIL: avifDecoderCreate\n");
@@ -153,13 +148,124 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	avifDecoderDestroy(decoder);
+	*pixels_out = pixels;
+	*size_out = buffer_size;
+	return 0;
+}
+
+static int dump_jxl(const char *input_path, uint16_t **pixels_out, size_t *size_out)
+{
+	FILE *f = fopen(input_path, "rb");
+	if (!f) {
+		fprintf(stderr, "FAIL: open input %s\n", input_path);
+		return 3;
+	}
+	fseek(f, 0, SEEK_END);
+	size_t file_size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	uint8_t *data = malloc(file_size);
+	if (!data) {
+		fclose(f);
+		return 4;
+	}
+	if (fread(data, 1, file_size, f) != file_size) {
+		fclose(f);
+		free(data);
+		return 5;
+	}
+	fclose(f);
+
+	JxlDecoder *dec = JxlDecoderCreate(NULL);
+	if (!dec) {
+		free(data);
+		return 6;
+	}
+
+	JxlDecoderSubscribeEvents(dec, JXL_DEC_BASIC_INFO | JXL_DEC_COLOR_ENCODING | JXL_DEC_FULL_IMAGE);
+	/* Match the extension's decoder configuration exactly (straight alpha). */
+	JxlDecoderSetUnpremultiplyAlpha(dec, JXL_TRUE);
+	JxlDecoderSetInput(dec, data, file_size);
+	JxlDecoderCloseInput(dec);
+
+	JxlPixelFormat fmt = {4, JXL_TYPE_UINT16, JXL_NATIVE_ENDIAN, 0};
+	uint16_t *pixels = NULL;
+	size_t buffer_size = 0;
+
+	for (;;) {
+		JxlDecoderStatus st = JxlDecoderProcessInput(dec);
+		if (st == JXL_DEC_ERROR || st == JXL_DEC_NEED_MORE_INPUT) {
+			fprintf(stderr, "FAIL: JXL decoder error %d\n", st);
+			free(data);
+			if (pixels)
+				free(pixels);
+			JxlDecoderDestroy(dec);
+			return 7;
+		}
+		if (st == JXL_DEC_BASIC_INFO) {
+			JxlBasicInfo info;
+			if (JxlDecoderGetBasicInfo(dec, &info) != JXL_DEC_SUCCESS) {
+				free(data);
+				JxlDecoderDestroy(dec);
+				return 8;
+			}
+			buffer_size = (size_t)info.xsize * (size_t)info.ysize * 8;
+			pixels = malloc(buffer_size);
+			continue;
+		}
+		if (st == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
+			if (JxlDecoderSetImageOutBuffer(dec, &fmt, pixels, buffer_size) != JXL_DEC_SUCCESS) {
+				free(data);
+				free(pixels);
+				JxlDecoderDestroy(dec);
+				return 9;
+			}
+			continue;
+		}
+		if (st == JXL_DEC_FULL_IMAGE || st == JXL_DEC_SUCCESS) {
+			break;
+		}
+	}
+
+	JxlDecoderDestroy(dec);
+	free(data);
+	*pixels_out = pixels;
+	*size_out = buffer_size;
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	if (argc < 2) {
+		fprintf(stderr, "Usage: %s <input.(avif|jxl)> [output.raw]\n", argv[0]);
+		return 1;
+	}
+
+	const char *input_path = argv[1];
+	const char *output_path = (argc >= 3) ? argv[2] : NULL;
+
+	uint16_t *pixels = NULL;
+	size_t buffer_size = 0;
+	int ret = 0;
+
+	size_t len = strlen(input_path);
+	if (len > 4 && strcmp(input_path + len - 4, ".jxl") == 0) {
+		ret = dump_jxl(input_path, &pixels, &buffer_size);
+	} else {
+		ret = dump_avif(input_path, &pixels, &buffer_size);
+	}
+
+	if (ret != 0 || !pixels) {
+		return ret;
+	}
+
 	FILE *out = stdout;
 	if (output_path) {
 		out = fopen(output_path, "wb");
 		if (!out) {
 			fprintf(stderr, "FAIL: open output %s\n", output_path);
 			free(pixels);
-			avifDecoderDestroy(decoder);
 			return 8;
 		}
 	}
@@ -170,13 +276,11 @@ int main(int argc, char *argv[])
 		if (output_path)
 			fclose(out);
 		free(pixels);
-		avifDecoderDestroy(decoder);
 		return 9;
 	}
 
 	if (output_path)
 		fclose(out);
 	free(pixels);
-	avifDecoderDestroy(decoder);
 	return 0;
 }

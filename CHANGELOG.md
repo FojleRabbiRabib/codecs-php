@@ -9,6 +9,11 @@ pinned vendored upstream codec versions recorded in the tag message,
 ## [Unreleased]
 
 ### Added
+- In-process JPEG XL decoding via statically linked libjxl 0.12.0 (`Codecs\Codec::decode`, `decodeFile`, `decodeStream`).
+- Container-based format sniffing (`codecs_detect_format`) automatically routing between AVIF and JXL by signature.
+- JPEG XL container and codestream metadata probing via `Codecs\Codec::probe()`, `probeFile()`, `probeStream()`.
+- Raw-pixel fidelity oracle rows for JPEG XL: 100% byte-identical 16-bit RGBA output on lossless and lossy fixtures.
+- Phpt test cases `008-010` covering JPEG XL decoding, metadata inspection, and dual-format dispatch.
 - In-process AVIF decoding via statically linked libavif 1.4.2 and dav1d 1.5.4 (`Codecs\Codec::decode`, `decodeFile`, `decodeStream`).
 - Full typed options and supporting types: `Codecs\Format`, `Codecs\AlphaMode`, `Codecs\ChromaSubsampling`, `Codecs\MatrixCoefficients`, `Codecs\Orientation`, `Codecs\MetadataPolicy`, `Codecs\ErrorCode`, `Codecs\Cicp`, `Codecs\DecodeOptions`, `Codecs\AvifEncodeOptions`, `Codecs\JxlEncodeOptions`, and `Codecs\Info`.
 - Typed exception hierarchy: `Codecs\Exception` with `getErrorCode(): ErrorCode`, `DecodeException`, `EncodeException`, `LimitException`, `UnsupportedFormatException`, `CorruptDataException`, and `StreamException`.

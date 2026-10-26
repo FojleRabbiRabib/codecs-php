@@ -49,13 +49,18 @@ if test "$PHP_CODECS" != "no"; then
     x86_64:*|amd64:*) CODECS_HARDEN_CFLAGS="$CODECS_HARDEN_CFLAGS -fcf-protection=full" ;;
   esac
 
-  PHP_NEW_EXTENSION([codecs], [codecs.c codecs_exception.c codecs_image.c codecs_options.c codecs_avif.c], [$ext_shared],,
+  PHP_NEW_EXTENSION([codecs], [codecs.c codecs_exception.c codecs_image.c codecs_options.c codecs_avif.c codecs_jxl.c], [$ext_shared],,
     [-Wall -Wextra -Werror -Wformat -Wformat-security $CODECS_HARDEN_CFLAGS])
 
   CODECS_STATIC_LIBS="$CODECS_VENDOR_INSTALL/lib/libavif.a"
   if test -f "$CODECS_VENDOR_INSTALL/lib/libdav1d.a"; then
     CODECS_STATIC_LIBS="$CODECS_STATIC_LIBS $CODECS_VENDOR_INSTALL/lib/libdav1d.a"
   fi
+  for jxl_lib in libjxl.a libjxl_cms.a libjxl_threads.a libhwy.a libbrotlienc.a libbrotlidec.a libbrotlicommon.a; do
+    if test -f "$CODECS_VENDOR_INSTALL/lib/$jxl_lib"; then
+      CODECS_STATIC_LIBS="$CODECS_STATIC_LIBS $CODECS_VENDOR_INSTALL/lib/$jxl_lib"
+    fi
+  done
 
   case "$host_os" in
     darwin*)
@@ -63,14 +68,14 @@ if test "$PHP_CODECS" != "no"; then
       if test ! -f "$CODECS_EXPORTS_LIST"; then
         AC_MSG_ERROR([codecs.exp not found at $CODECS_EXPORTS_LIST; it is part of the extension sources])
       fi
-      CODECS_SHARED_LIBADD="$CODECS_STATIC_LIBS -lm -lpthread $CODECS_SHARED_LIBADD -Wl,-dead_strip -Wl,-bind_at_load -Wl,-undefined,dynamic_lookup -Wl,-exported_symbols_list,$CODECS_EXPORTS_LIST"
+      CODECS_SHARED_LIBADD="$CODECS_STATIC_LIBS -lm -lpthread -lstdc++ $CODECS_SHARED_LIBADD -Wl,-dead_strip -Wl,-bind_at_load -Wl,-undefined,dynamic_lookup -Wl,-exported_symbols_list,$CODECS_EXPORTS_LIST"
       ;;
     *)
       CODECS_LINK_SCRIPT="$abs_srcdir/codecs.map"
       if test ! -f "$CODECS_LINK_SCRIPT"; then
         AC_MSG_ERROR([codecs.map not found at $CODECS_LINK_SCRIPT; it is part of the extension sources])
       fi
-      CODECS_SHARED_LIBADD="$CODECS_STATIC_LIBS -lm -lpthread -ldl $CODECS_SHARED_LIBADD -Wl,--version-script=$CODECS_LINK_SCRIPT -Wl,--gc-sections -Wl,-z,relro,-z,now,-z,noexecstack"
+      CODECS_SHARED_LIBADD="$CODECS_STATIC_LIBS -lm -lpthread -ldl -lstdc++ $CODECS_SHARED_LIBADD -Wl,--version-script=$CODECS_LINK_SCRIPT -Wl,--gc-sections -Wl,-z,relro,-z,now,-z,noexecstack"
       ;;
   esac
 

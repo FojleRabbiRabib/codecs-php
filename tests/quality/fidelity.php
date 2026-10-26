@@ -30,6 +30,9 @@ $fixtures = [
     __DIR__ . '/../../vendor-src/libavif-1.4.2/tests/data/white_1x1.avif',
     __DIR__ . '/../../vendor-src/libavif-1.4.2/tests/data/colors_text_hdr_srgb.avif',
     __DIR__ . '/../../vendor-src/libavif-1.4.2/tests/data/draw_points_idat.avif',
+    __DIR__ . '/../fixtures/white_1x1_rgba_lossless.jxl',
+    __DIR__ . '/../fixtures/gradient_8x8_rgba_lossless.jxl',
+    __DIR__ . '/../fixtures/gradient_64x64_rgb_lossy.jxl',
 ];
 
 $passed = 0;

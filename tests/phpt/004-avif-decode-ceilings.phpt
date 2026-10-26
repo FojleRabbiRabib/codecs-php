@@ -23,9 +23,10 @@ try {
     echo "FAIL\n";
 }
 
-// Corrupt bitstream
+// Corrupt bitstream with a recognizable AVIF ftyp brand
+$fake = "....ftypavif...." . str_repeat("\x00", 32);
 try {
-    Codecs\Codec::decode("not a real avif bitstream at all");
+    Codecs\Codec::decode($fake);
 } catch (Codecs\CorruptDataException $e) {
     echo "corrupt: " . $e->getErrorCode()->name . "\n";
 }

@@ -145,4 +145,14 @@ codecs_image_object *codecs_image_alloc(uint32_t width, uint32_t height, uint32_
 codecs_image_object *codecs_avif_decode(const uint8_t *data, size_t size, zval *options_zv);
 bool codecs_avif_probe(const uint8_t *data, size_t size, zval *info_zv);
 
+/* JXL decoder entry */
+codecs_image_object *codecs_jxl_decode(const uint8_t *data, size_t size, zval *options_zv);
+bool codecs_jxl_probe(const uint8_t *data, size_t size, zval *return_value);
+
+/* Container sniffing: CODECS_FMT_AVIF, CODECS_FMT_JXL, or CODECS_FMT_UNKNOWN */
+#define CODECS_FMT_UNKNOWN 0
+#define CODECS_FMT_AVIF 1
+#define CODECS_FMT_JXL 2
+int codecs_detect_format(const uint8_t *data, size_t size);
+
 #endif /* CODECS_INTERNAL_H */
