@@ -4,12 +4,12 @@
 # Copyright 2026 Fojle Rabbi (Rabib)
 # SPDX-License-Identifier: Apache-2.0
 #
-# Builds pinned dav1d, libavif, and libjxl (with highway, brotli, skcms) from
-# vendor-src/ into vendor-build/install/. All produce static archives (-fPIC)
-# ready to be linked into the PHP extension. Source directories are resolved
-# deterministically from tools/pins.txt, and every install is stamped with the
-# pin version so a bump always rebuilds and never silently keeps a superseded
-# library.
+# Builds pinned dav1d, libavif, libjxl (with highway, brotli, skcms), zlib, and
+# libpng from vendor-src/ into vendor-build/install/. All produce static
+# archives (-fPIC) ready to be linked into the PHP extension. Source directories
+# are resolved deterministically from tools/pins.txt, and every install is
+# stamped with the pin version so a bump always rebuilds and never silently
+# keeps a superseded library.
 
 set -euo pipefail
 
@@ -49,10 +49,14 @@ JXL_SRC="$(pin_source libjxl)"
 HWY_SRC="$(pin_source highway)"
 BROTLI_SRC="$(pin_source brotli)"
 SKCMS_SRC="$(pin_source skcms)"
+ZLIB_SRC="$(pin_source zlib)"
+PNG_SRC="$(pin_source libpng)"
 
 DAV1D_VER="$(pin_version dav1d)"
 AVIF_VER="$(pin_version libavif)"
 JXL_VER="$(pin_version libjxl)"
+ZLIB_VER="$(pin_version zlib)"
+PNG_VER="$(pin_version libpng)"
 
 # rebuild_if_stale <archive> <stamp>: returns 0 (rebuild needed) when either the
 # installed archive or the pin-version stamp is missing (cache keyed to the pin version).
@@ -146,10 +150,53 @@ if rebuild_if_stale "$INSTALL/lib/libjxl.a" "$JXL_STAMP"; then
 	touch "$JXL_STAMP"
 fi
 
+# 4. zlib static (libpng's build dependency; linked into codecs.so for PNG ingest)
+echo "=== building zlib static ===" >&2
+ZLIB_B="$B/zlib"
+ZLIB_STAMP="$INSTALL/lib/.codecs-stamp-zlib-$ZLIB_VER"
+if rebuild_if_stale "$INSTALL/lib/libz.a" "$ZLIB_STAMP"; then
+	rm -rf "$ZLIB_B"
+	cmake -S "$ZLIB_SRC" -B "$ZLIB_B" \
+		-DCMAKE_INSTALL_PREFIX="$INSTALL" \
+		-DCMAKE_INSTALL_LIBDIR="lib" \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+		-DZLIB_BUILD_TESTING=OFF \
+		-DZLIB_BUILD_SHARED=OFF \
+		-DZLIB_BUILD_STATIC=ON
+	cmake --build "$ZLIB_B" -j"$(nproc)"
+	cmake --install "$ZLIB_B"
+	touch "$ZLIB_STAMP"
+fi
+
+# 5. libpng static linking against zlib
+echo "=== building libpng static ===" >&2
+PNG_B="$B/png"
+PNG_STAMP="$INSTALL/lib/.codecs-stamp-libpng-$PNG_VER"
+if rebuild_if_stale "$INSTALL/lib/libpng.a" "$PNG_STAMP"; then
+	rm -rf "$PNG_B"
+	cmake -S "$PNG_SRC" -B "$PNG_B" \
+		-DCMAKE_INSTALL_PREFIX="$INSTALL" \
+		-DCMAKE_INSTALL_LIBDIR="lib" \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+		-DPNG_SHARED=OFF \
+		-DPNG_STATIC=ON \
+		-DPNG_TESTS=OFF \
+		-DPNG_TOOLS=OFF \
+		-DPNG_FRAMEWORK=OFF \
+		-DZLIB_ROOT="$INSTALL"
+	cmake --build "$PNG_B" -j"$(nproc)"
+	cmake --install "$PNG_B"
+	touch "$PNG_STAMP"
+fi
+
 echo "ok: vendored static libraries ready in $INSTALL" >&2
 ls -lh "$INSTALL/lib/"*.a >&2
 
-# 4. Build oracle dump tool
+# 6. Build oracle dump tool
 echo "=== building dump-pixels oracle ===" >&2
 gcc -O2 -Wall -Wextra "$ROOT/tools/dump-pixels.c" \
 	-I"$INSTALL/include" \
