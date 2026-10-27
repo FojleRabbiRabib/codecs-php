@@ -51,18 +51,6 @@ committed**. Product manuals live in `docs/` when shipped.
   `avifenc`, `djxl`/`cjxl`) built from the same vendored tree, alongside the adversarial bitstream
   safety suite.
 
-## Conventions
-
-- **Zero AI attribution** in commits or PRs — no `Co-Authored-By` trailer, no `Generated with`
-  footer.
-- Commit messages: 3-block Conventional Commits with scope (`codecs`, `ext`, `ci`, `build`,
-  `installer`, `release`, `docs`, `usage`).
-- Commits are **local**; remote delivery is entirely the owner's business — the word "push" is not
-  used here, and only an explicit instruction to commit authorizes one.
-- Planning and design notes live in the project root, **untracked** — never committed; their names
-  are listed in `.git/info/exclude` (never `.gitignore`), and they are never referenced by name from
-  tracked files.
-
 ## Licence and attribution
 
 Apache-2.0. Every source file carries an `SPDX-License-Identifier: Apache-2.0` header. `NOTICE`
