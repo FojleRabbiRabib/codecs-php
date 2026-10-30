@@ -1,0 +1,50 @@
+name: "🚀 Feature Request"
+description: "Suggest a new capability, API enhancement, or performance improvement"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        codecs-php wraps upstream codec libraries ([libavif](https://github.com/AOMediaCodec/libavif) and [libjxl](https://github.com/libjxl/libjxl)).
+        Core format specification changes or underlying codec algorithms belong in upstream repositories.
+        Extension-level enhancements, PHP API features, and interop capabilities are welcomed here!
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Feature Area"
+      options:
+        - "AVIF support"
+        - "JPEG XL support"
+        - "HEIF / HEIC support"
+        - "General Image API / On-ramps"
+        - "Tooling / Distribution / PIE"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem Statement"
+      description: "What problem are you trying to solve, or what capability is currently missing?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_api
+    attributes:
+      label: "Proposed Solution & PHP API Design"
+      description: "How should the PHP-facing API look? (We prefer explicit options on existing methods over sprawling sibling surfaces)."
+      render: php
+      placeholder: |
+        <?php
+        $options = new Codecs\DecodeOptions(...);
+        $image = Codecs\Codec::decode($data, $options);
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      description: "What workarounds or alternatives exist today (e.g. CLI tools, GD, Imagick)?"

@@ -71,6 +71,12 @@ Initial 0.1.0 development scaffold.
    <file role="data" name=".gitignore"/>
    <file role="data" name="phpcs.xml"/>
    <file role="data" name="phpstan.neon"/>
+   <file role="data" name=".github/FUNDING.yml"/>
+   <file role="data" name=".github/SECURITY.md"/>
+   <file role="data" name=".github/PULL_REQUEST_TEMPLATE.md"/>
+   <file role="data" name=".github/ISSUE_TEMPLATE/config.yml"/>
+   <file role="data" name=".github/ISSUE_TEMPLATE/1_bug_report.yml"/>
+   <file role="data" name=".github/ISSUE_TEMPLATE/2_feature_request.yml"/>
    <file role="doc" name="README.md"/>
    <file role="doc" name="CHANGELOG.md"/>
    <file role="doc" name="CLAUDE.md"/>
