@@ -49,7 +49,7 @@ if test "$PHP_CODECS" != "no"; then
     x86_64:*|amd64:*) CODECS_HARDEN_CFLAGS="$CODECS_HARDEN_CFLAGS -fcf-protection=full" ;;
   esac
 
-  PHP_NEW_EXTENSION([codecs], [codecs.c codecs_exception.c codecs_image.c codecs_options.c codecs_avif.c codecs_jxl.c], [$ext_shared],,
+  PHP_NEW_EXTENSION([codecs], [codecs.c codecs_exception.c codecs_image.c codecs_options.c codecs_avif.c codecs_jxl.c codecs_png.c], [$ext_shared],,
     [-Wall -Wextra -Werror -Wformat -Wformat-security $CODECS_HARDEN_CFLAGS])
 
   CODECS_STATIC_LIBS="$CODECS_VENDOR_INSTALL/lib/libavif.a"
@@ -60,6 +60,12 @@ if test "$PHP_CODECS" != "no"; then
     if test -f "$CODECS_VENDOR_INSTALL/lib/$jxl_lib"; then
       CODECS_STATIC_LIBS="$CODECS_STATIC_LIBS $CODECS_VENDOR_INSTALL/lib/$jxl_lib"
     fi
+  done
+  for png_lib in libpng.a libz.a; do
+    if test ! -f "$CODECS_VENDOR_INSTALL/lib/$png_lib"; then
+      AC_MSG_ERROR([vendored $png_lib missing; run tools/build-deps.sh first])
+    fi
+    CODECS_STATIC_LIBS="$CODECS_STATIC_LIBS $CODECS_VENDOR_INSTALL/lib/$png_lib"
   done
 
   case "$host_os" in

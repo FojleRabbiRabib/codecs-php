@@ -34,7 +34,7 @@ body:
     id: proposed_api
     attributes:
       label: "Proposed Solution & PHP API Design"
-      description: "How should the PHP-facing API look? (We prefer explicit options on existing methods over sprawling sibling surfaces)."
+      description: "How should the PHP-facing API look? Include a usage example if possible."
       render: php
       placeholder: |
         <?php

@@ -197,10 +197,12 @@ ZEND_METHOD(Codecs_Image, fromPng)
 	Z_PARAM_STR(png)
 	ZEND_PARSE_PARAMETERS_END();
 
-	(void)png;
-	(void)return_value;
-	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "fromPng() is not yet implemented in this milestone");
+	codecs_image_object *img = codecs_png_decode((const uint8_t *)ZSTR_VAL(png), ZSTR_LEN(png), NULL);
+	if (!img) {
+		RETURN_THROWS();
+	}
+
+	RETURN_OBJ(&img->std);
 }
 
 ZEND_METHOD(Codecs_Image, fromGd)
@@ -214,7 +216,7 @@ ZEND_METHOD(Codecs_Image, fromGd)
 	(void)gd;
 	(void)return_value;
 	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "fromGd() is not yet implemented in this milestone");
+				 "GD image import is not yet supported");
 }
 
 ZEND_METHOD(Codecs_Image, width)
@@ -375,12 +377,14 @@ ZEND_METHOD(Codecs_Image, close)
 ZEND_METHOD(Codecs_Image, toPng)
 {
 	ZEND_PARSE_PARAMETERS_NONE();
-	(void)return_value;
 	codecs_image_object *img = Z_CODECS_IMAGE_P(ZEND_THIS);
 	CHECK_IMAGE_NOT_CLOSED(img);
 
-	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "toPng() is not yet implemented in this milestone");
+	zend_string *png = codecs_png_encode(img);
+	if (!png) {
+		RETURN_THROWS();
+	}
+	RETURN_STR(png);
 }
 
 ZEND_METHOD(Codecs_Image, rgba16)

@@ -25,3 +25,14 @@ and linked from pinned, hash-verified upstream releases:
   https://github.com/google/highway
   Copyright Google LLC
   Licensed under the Apache License, Version 2.0.
+
+  libpng
+  https://github.com/pnggroup/libpng
+  Copyright 1995-2026 The PNG Reference Library Authors
+  Copyright 2018-2026 Cosmin Truta
+  Licensed under the PNG Reference Library License version 2.
+
+  zlib
+  https://github.com/madler/zlib
+  Copyright 1995-2026 Jean-loup Gailly and Mark Adler
+  Licensed under the zlib License.

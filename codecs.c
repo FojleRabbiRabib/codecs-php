@@ -16,6 +16,8 @@
 #include "avif/avif.h"
 #include "dav1d/dav1d.h"
 #include "jxl/decode.h"
+#include "png.h"
+#include "zlib.h"
 #include "php_codecs.h"
 #include "codecs_internal.h"
 #include "codecs_arginfo.h"
@@ -93,9 +95,9 @@ ZEND_METHOD(Codecs_Codec, versions)
 	uint32_t jv = JxlDecoderVersion();
 	snprintf(jxl_version, sizeof(jxl_version), "%u.%u.%u", jv / 1000000, (jv / 1000) % 1000, jv % 1000);
 	add_assoc_string(return_value, "libjxl", jxl_version);
-	add_assoc_string(return_value, "highway", "not_compiled");
-	add_assoc_string(return_value, "libpng", "not_compiled");
-	add_assoc_string(return_value, "zlib", "not_compiled");
+	add_assoc_string(return_value, "highway", "bundled");
+	add_assoc_string(return_value, "libpng", png_libpng_ver);
+	add_assoc_string(return_value, "zlib", zlibVersion());
 }
 
 ZEND_METHOD(Codecs_Codec, supports)
@@ -146,6 +148,12 @@ int codecs_detect_format(const uint8_t *data, size_t size)
 		}
 	}
 
+	/* PNG signature: 89 50 4E 47 0D 0A 1A 0A */
+	static const uint8_t png_sig[8] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+	if (size >= 8 && memcmp(data, png_sig, 8) == 0) {
+		return CODECS_FMT_PNG;
+	}
+
 	return CODECS_FMT_UNKNOWN;
 }
 
@@ -157,6 +165,9 @@ static codecs_image_object *codecs_dispatch_decode(const uint8_t *data, size_t s
 	}
 	if (fmt == CODECS_FMT_AVIF) {
 		return codecs_avif_decode(data, size, options_zv);
+	}
+	if (fmt == CODECS_FMT_PNG) {
+		return codecs_png_decode(data, size, options_zv);
 	}
 	if (size == 0) {
 		codecs_throw(codecs_corrupt_data_exception_ce, CODECS_ERR_BITSTREAM, "Cannot decode empty or zero-byte data");
@@ -310,7 +321,7 @@ ZEND_METHOD(Codecs_Codec, encode)
 	(void)options_zv;
 	(void)return_value;
 	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "encode() is not yet implemented in this milestone");
+				 "AVIF/JXL encoding is not yet supported");
 }
 
 ZEND_METHOD(Codecs_Codec, encodeFile)
@@ -334,7 +345,7 @@ ZEND_METHOD(Codecs_Codec, encodeFile)
 	(void)options_zv;
 	(void)return_value;
 	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "encodeFile() is not yet implemented in this milestone");
+				 "AVIF/JXL file encoding is not yet supported");
 }
 
 ZEND_METHOD(Codecs_Codec, encodeStream)
@@ -358,7 +369,7 @@ ZEND_METHOD(Codecs_Codec, encodeStream)
 	(void)options_zv;
 	(void)return_value;
 	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "encodeStream() is not yet implemented in this milestone");
+				 "AVIF/JXL stream encoding is not yet supported");
 }
 
 ZEND_METHOD(Codecs_Codec, transcode)
@@ -379,7 +390,7 @@ ZEND_METHOD(Codecs_Codec, transcode)
 	(void)options_zv;
 	(void)return_value;
 	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "transcode() is not yet implemented in this milestone");
+				 "Image transcoding is not yet supported");
 }
 
 ZEND_METHOD(Codecs_Codec, probe)
@@ -544,6 +555,8 @@ PHP_MINFO_FUNCTION(codecs)
 	php_info_print_table_row(2, "libavif version", avifVersion());
 	php_info_print_table_row(2, "dav1d version", dav1d_version());
 	php_info_print_table_row(2, "libjxl version", jxl_ver);
+	php_info_print_table_row(2, "libpng version", png_libpng_ver);
+	php_info_print_table_row(2, "zlib version", zlibVersion());
 	php_info_print_table_end();
 
 	DISPLAY_INI_ENTRIES();

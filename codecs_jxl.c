@@ -309,7 +309,7 @@ codecs_image_object *codecs_jxl_decode(const uint8_t *data, size_t size, zval *o
 				break;
 			}
 
-			/* Float samples are rejected in v0.1.0 (design record §0). */
+			/* Float samples are rejected in v0.1.0. */
 			if (info.exponent_bits_per_sample > 0 || info.alpha_exponent_bits > 0) {
 				snprintf(errbuf, sizeof(errbuf), "Float-sample JPEG XL images are not supported");
 				break;
@@ -332,7 +332,7 @@ codecs_image_object *codecs_jxl_decode(const uint8_t *data, size_t size, zval *o
 				break;
 			}
 
-			/* Animation fail-closed (design record §0). */
+			/* Animation fail-closed. */
 			if (info.have_animation && !first_frame_only) {
 				snprintf(errbuf, sizeof(errbuf), "Animated JPEG XL is not supported unless firstFrameOnly option is true");
 				break;
@@ -486,7 +486,7 @@ bool codecs_jxl_probe(const uint8_t *data, size_t size, zval *return_value)
 		return false;
 	}
 
-	/* Raw container dimensions + original orientation (design record §0). */
+	/* Raw container dimensions + original orientation. */
 	JxlDecoderSubscribeEvents(dec, JXL_DEC_BASIC_INFO | JXL_DEC_COLOR_ENCODING | JXL_DEC_BOX);
 	JxlDecoderSetKeepOrientation(dec, JXL_TRUE);
 	JxlDecoderSetDecompressBoxes(dec, JXL_TRUE);

@@ -78,7 +78,7 @@ static int dump_avif(const char *input_path, uint16_t **pixels_out, size_t *size
 		return 7;
 	}
 
-	/* Invert/rotate orientation to match extension (B2 + S7) */
+	/* Apply rotation and mirroring to match the extension's output. */
 	if (image->transformFlags & (AVIF_TRANSFORM_IROT | AVIF_TRANSFORM_IMIR)) {
 		if ((image->transformFlags & AVIF_TRANSFORM_IROT) && image->irot.angle == 2) {
 			size_t total_pixels = (size_t)w * (size_t)h;

@@ -16,7 +16,7 @@
 #include "avif/avif.h"
 #include <string.h>
 
-/* Map AVIF irot and imir transform flags to EXIF orientation 1..8 (B3) */
+/* Map AVIF irot and imir transform flags to EXIF orientation 1..8 */
 static uint32_t calc_exif_orientation(avifTransformFlags flags, avifImageRotation irot, avifImageMirror imir)
 {
 	if (!(flags & AVIF_TRANSFORM_IROT) || irot.angle == 0) {
@@ -59,7 +59,7 @@ static uint32_t calc_exif_orientation(avifTransformFlags flags, avifImageRotatio
 	return 5;
 }
 
-/* Helper: apply orientation transform to 16-bit RGBA buffer (extension-owned, R2-D3 & B2) */
+/* Apply orientation transforms to the 16-bit RGBA buffer. */
 static void apply_orientation_transform(uint16_t **pixels_ptr, uint32_t *width_ptr, uint32_t *height_ptr, avifTransformFlags flags, avifImageRotation irot, avifImageMirror imir)
 {
 	uint32_t w = *width_ptr;
@@ -70,7 +70,7 @@ static void apply_orientation_transform(uint16_t **pixels_ptr, uint32_t *width_p
 		return;
 	}
 
-	/* 180 degree rotation in place (B2: decoupled from IMIR) */
+	/* 180 degree rotation in place; mirroring is applied separately. */
 	if ((flags & AVIF_TRANSFORM_IROT) && irot.angle == 2) {
 		size_t total_pixels = (size_t)w * (size_t)h;
 		for (size_t i = 0; i < total_pixels / 2; i++) {
@@ -239,7 +239,7 @@ codecs_image_object *codecs_avif_decode(const uint8_t *data, size_t size, zval *
 		return NULL;
 	}
 
-	/* B5: Configure libavif native limits and ignore flags before parsing */
+	/* Configure libavif native limits and metadata options before parsing. */
 	decoder->maxThreads = threads > 0 ? threads : 1;
 	decoder->strictFlags = AVIF_STRICT_ENABLED;
 	decoder->imageDimensionLimit = (uint32_t)max_dim;
@@ -262,7 +262,7 @@ codecs_image_object *codecs_avif_decode(const uint8_t *data, size_t size, zval *
 		return NULL;
 	}
 
-	/* Check animation fail-closed (design record §0) */
+	/* Check animation fail-closed. */
 	if (decoder->imageCount > 1 && !first_frame_only) {
 		int count = decoder->imageCount;
 		avifDecoderDestroy(decoder);
@@ -271,7 +271,7 @@ codecs_image_object *codecs_avif_decode(const uint8_t *data, size_t size, zval *
 		return NULL;
 	}
 
-	/* Decode first frame with zend_try / zend_catch cleanup guard (B6) */
+	/* Decode the first frame with bailout cleanup. */
 	avifDecoder *volatile volatile_decoder = decoder;
 	uint16_t *volatile volatile_pixels = NULL;
 	uint16_t *pixels = NULL;
@@ -320,12 +320,12 @@ codecs_image_object *codecs_avif_decode(const uint8_t *data, size_t size, zval *
 		return NULL;
 	}
 
-	/* S4: apply matrixOverride if specified */
+	/* Apply matrixOverride if specified. */
 	if (matrix_override >= 0) {
 		image->matrixCoefficients = (avifMatrixCoefficients)matrix_override;
 	}
 
-	/* Setup RGB output: 16-bit depth (full scale per R4-S1), straight alpha per R1-D1 */
+	/* Setup full-scale 16-bit RGB output with straight alpha. */
 	avifRGBImage rgb;
 	avifRGBImageSetDefaults(&rgb, image);
 	rgb.depth = 16;
@@ -367,7 +367,7 @@ codecs_image_object *codecs_avif_decode(const uint8_t *data, size_t size, zval *
 		return NULL;
 	}
 
-	/* B4: Validate metadata limits before object allocation */
+	/* Validate metadata limits before object allocation. */
 	if (!ignore_icc && image->icc.size > (size_t)CODECS_G(max_metadata_bytes)) {
 		efree(pixels);
 		avifDecoderDestroy(decoder);
@@ -390,7 +390,7 @@ codecs_image_object *codecs_avif_decode(const uint8_t *data, size_t size, zval *
 		return NULL;
 	}
 
-	/* Apply orientation if not disabled (extension-owned transform, R2-D3 & B2) */
+	/* Apply orientation if not disabled. */
 	if (!keep_orientation && (image->transformFlags & (AVIF_TRANSFORM_IROT | AVIF_TRANSFORM_IMIR))) {
 		apply_orientation_transform(&pixels, &w, &h, image->transformFlags, image->irot, image->imir);
 	}
@@ -407,7 +407,7 @@ codecs_image_object *codecs_avif_decode(const uint8_t *data, size_t size, zval *
 	img->alpha_mode = 0; /* straight */
 	img->provenance = estrdup("avif");
 
-	/* B3: Calculate and set source orientation */
+	/* Calculate and set source orientation. */
 	img->orientation = calc_exif_orientation(image->transformFlags, image->irot, image->imir);
 
 	/* Populate CICP */

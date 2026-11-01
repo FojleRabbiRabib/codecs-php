@@ -33,9 +33,6 @@ never committed** — `vendor-src/` is gitignored because it is reproducible fro
 | `package.xml` | PECL/PIE package manifest |
 | `composer.json` | PIE (`type: php-ext`) and dev-tooling manifest |
 
-Files in the repository root that are planning or research records stay **untracked and never
-committed**. Product manuals live in `docs/` when shipped.
-
 ## Engineering rules
 
 - **PHP 8.3+ only** — no PHP 5/7-era extension patterns. Multi-ABI order: **8.3 first**, then 8.4

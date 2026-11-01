@@ -1,6 +1,5 @@
 | Question | Answer |
 | --- | --- |
-| Target branch | `develop` |
 | Type of change | feature / bugfix / build / docs / refactor |
 | Formats affected | AVIF / JPEG XL / PNG / Core API / Build |
 | License | Apache-2.0 |
