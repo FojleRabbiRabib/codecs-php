@@ -63,6 +63,7 @@ Initial 0.1.0 development scaffold.
    <file role="test" name="tests/phpt/009-jxl-probe.phpt"/>
    <file role="test" name="tests/phpt/010-dispatch-formats.phpt"/>
    <file role="test" name="tests/phpt/011-png-onramp.phpt"/>
+   <file role="test" name="tests/phpt/012-gd-onramp.phpt"/>
    <file role="test" name="tests/fixtures/gradient_8x8_rgba_lossless.jxl"/>
    <file role="test" name="tests/fixtures/gradient_64x64_rgb_lossy.jxl"/>
    <file role="test" name="tests/fixtures/white_1x1_rgba_lossless.jxl"/>

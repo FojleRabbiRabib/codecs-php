@@ -9,6 +9,8 @@ pinned vendored upstream codec versions recorded in the tag message,
 ## [Unreleased]
 
 ### Added
+- Native GD on-ramp via `Codecs\Image::fromGd()` supporting both truecolor and palette `GdImage` objects with straight-alpha normalization and zero compile-time link dependency on ext/gd.
+- Phpt test case `012-gd-onramp.phpt` asserting GD truecolor, palette, transparency, and resource limit enforcement.
 - PNG on-ramp via vendored libpng 1.6.59 and zlib 1.3.2: `Codecs\Image::fromPng()` and `Codecs\Image::toPng()` implementing the enforced supported-PNG subset (non-interlaced truecolor, palette expansion, tRNS alpha composition).
 - Lossless PNG 16-bit RGBA and 8-bit RGBA round-trip support; non-interlaced truecolor, palette expansion, and tRNS alpha composition.
 - Automatic PNG container signature detection in `Codecs\Codec::decode()` and `Codecs\Codec::decodeFile()`.

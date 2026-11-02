@@ -75,12 +75,23 @@ foreach ($files as $file) {
     }
     file_put_contents($script, $sections['FILE']);
 
+    $extraExtensions = '';
+    if (isset($sections['EXTENSIONS'])) {
+        foreach (preg_split('/\r?\n/', trim($sections['EXTENSIONS'])) ?: [] as $ext) {
+            $ext = trim($ext);
+            if ($ext !== '' && $ext !== 'codecs') {
+                $extraExtensions .= ' -d extension=' . escapeshellarg($ext);
+            }
+        }
+    }
+
     $output = [];
     $code = 0;
     exec(
         sprintf(
-            '%s -n -d extension=%s %s 2>&1',
+            '%s -n%s -d extension=%s %s 2>&1',
             escapeshellarg($phpBin),
+            $extraExtensions,
             escapeshellarg($extension),
             escapeshellarg($script),
         ),
