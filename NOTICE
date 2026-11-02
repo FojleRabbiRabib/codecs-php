@@ -16,6 +16,11 @@ and linked from pinned, hash-verified upstream releases:
   Copyright 2018-2026 VideoLAN and dav1d authors
   Licensed under the BSD 2-Clause License.
 
+  aom (Alliance for Open Media AV1 Codec)
+  https://aomedia.googlesource.com/aom
+  Copyright 2016-2026 Alliance for Open Media
+  Licensed under the BSD 2-Clause License and the Alliance for Open Media Patent License 1.0.
+
   libjxl (JPEG XL reference implementation)
   https://github.com/libjxl/libjxl
   Copyright the JPEG XL Project Authors
@@ -25,3 +30,14 @@ and linked from pinned, hash-verified upstream releases:
   https://github.com/google/highway
   Copyright Google LLC
   Licensed under the Apache License, Version 2.0.
+
+  libpng
+  https://github.com/pnggroup/libpng
+  Copyright 1995-2026 The PNG Reference Library Authors
+  Copyright 2018-2026 Cosmin Truta
+  Licensed under the PNG Reference Library License version 2.
+
+  zlib
+  https://github.com/madler/zlib
+  Copyright 1995-2026 Jean-loup Gailly and Mark Adler
+  Licensed under the zlib License.

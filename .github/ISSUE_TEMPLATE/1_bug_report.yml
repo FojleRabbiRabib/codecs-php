@@ -1,0 +1,90 @@
+name: "🐛 Bug Report"
+description: "Report a crash, incorrect pixel output, ceiling bypass, or unexpected exception"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue!
+        **Security notice:** If you have discovered a security vulnerability (such as a memory corruption bug, decompression bomb, or denial-of-service vulnerability), please report it privately via [GitHub Security Advisories](https://github.com/FojleRabbiRabib/codecs-php/security/advisories/new) instead of this public form.
+
+  - type: input
+    id: version
+    attributes:
+      label: "Extension Version"
+      description: "The output of `Codecs\\Codec::version()` or `Codecs\\Codec::versions()`."
+      placeholder: "e.g. 0.1.0 (libavif 1.4.2, dav1d 1.5.4, libjxl 0.12.0)"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: "PHP & Environment"
+      description: "PHP version, operating system, and architecture."
+      placeholder: "e.g. PHP 8.3.16 (cli) (built: Feb 20 2026), Linux x86_64 glibc 2.35"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: "Component / Format"
+      description: "Which part of the extension is affected?"
+      options:
+        - "AVIF decoding / probing"
+        - "JPEG XL decoding / probing"
+        - "Image object / Memory lifecycle"
+        - "Resource ceilings / Limits"
+        - "Build / Installation / PIE"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: input_origin
+    attributes:
+      label: "Input Origin"
+      description: "Where does the input image come from? (Helps assess security and ceiling triage)"
+      options:
+        - "Untrusted user upload (web request / untrusted source)"
+        - "Trusted local asset / developer file"
+        - "Synthetic / programmatic test buffer"
+        - "Not applicable / Build issue"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description of the Bug"
+      description: "A clear, concise summary of what happened."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: "Minimal Reproducing PHP Code"
+      description: "The smallest self-contained PHP snippet that demonstrates the issue."
+      render: php
+      placeholder: |
+        <?php
+        $img = Codecs\Codec::decodeFile('broken.avif');
+        var_dump($img->width());
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected vs Actual Behavior"
+      description: "What did you expect to happen, and what happened instead? Include exact exception class, ErrorCode, or backtrace."
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample_data
+    attributes:
+      label: "Sample Image (Optional)"
+      description: "If this issue is specific to a particular file, attach it or paste a base64-encoded snippet."

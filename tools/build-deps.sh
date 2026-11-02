@@ -4,12 +4,12 @@
 # Copyright 2026 Fojle Rabbi (Rabib)
 # SPDX-License-Identifier: Apache-2.0
 #
-# Builds pinned dav1d, libavif, and libjxl (with highway, brotli, skcms) from
-# vendor-src/ into vendor-build/install/. All produce static archives (-fPIC)
-# ready to be linked into the PHP extension. Source directories are resolved
-# deterministically from tools/pins.txt, and every install is stamped with the
-# pin version so a bump always rebuilds and never silently keeps a superseded
-# library.
+# Builds pinned dav1d, libavif, libjxl (with highway, brotli, skcms), zlib, and
+# libpng from vendor-src/ into vendor-build/install/. All produce static
+# archives (-fPIC) ready to be linked into the PHP extension. Source directories
+# are resolved deterministically from tools/pins.txt, and every install is
+# stamped with the pin version so a bump always rebuilds and never silently
+# keeps a superseded library.
 
 set -euo pipefail
 
@@ -44,15 +44,21 @@ pin_source() {
 "$ROOT/tools/fetch-codecs.sh"
 
 DAV1D_SRC="$(pin_source dav1d)"
+AOM_SRC="$(pin_source aom)"
 AVIF_SRC="$(pin_source libavif)"
 JXL_SRC="$(pin_source libjxl)"
 HWY_SRC="$(pin_source highway)"
 BROTLI_SRC="$(pin_source brotli)"
 SKCMS_SRC="$(pin_source skcms)"
+ZLIB_SRC="$(pin_source zlib)"
+PNG_SRC="$(pin_source libpng)"
 
 DAV1D_VER="$(pin_version dav1d)"
+AOM_VER="$(pin_version aom)"
 AVIF_VER="$(pin_version libavif)"
 JXL_VER="$(pin_version libjxl)"
+ZLIB_VER="$(pin_version zlib)"
+PNG_VER="$(pin_version libpng)"
 
 # rebuild_if_stale <archive> <stamp>: returns 0 (rebuild needed) when either the
 # installed archive or the pin-version stamp is missing (cache keyed to the pin version).
@@ -87,10 +93,40 @@ if rebuild_if_stale "$INSTALL/lib/libdav1d.a" "$DAV1D_STAMP"; then
 	touch "$DAV1D_STAMP"
 fi
 
-# 2. libavif static linking against dav1d
+# 2. aom static (AV1 encoder backend)
+echo "=== building aom static ===" >&2
+AOM_B="$B/aom"
+AOM_STAMP="$INSTALL/lib/.codecs-stamp-aom-$AOM_VER"
+if rebuild_if_stale "$INSTALL/lib/libaom.a" "$AOM_STAMP"; then
+	rm -rf "$AOM_B"
+	AOM_EXTRA_FLAGS=""
+	if ! command -v nasm >/dev/null 2>&1 && ! command -v yasm >/dev/null 2>&1; then
+		AOM_EXTRA_FLAGS="-DAOM_TARGET_CPU=generic"
+		echo "note: nasm/yasm not found, building aom with AOM_TARGET_CPU=generic" >&2
+	fi
+	cmake -S "$AOM_SRC" -B "$AOM_B" \
+		-DCMAKE_INSTALL_PREFIX="$INSTALL" \
+		-DCMAKE_INSTALL_LIBDIR="lib" \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+		-DENABLE_DOCS=OFF \
+		-DENABLE_EXAMPLES=OFF \
+		-DENABLE_TESTDATA=OFF \
+		-DENABLE_TESTS=OFF \
+		-DENABLE_TOOLS=OFF \
+		-DCONFIG_AV1_DECODER=0 \
+		-DCONFIG_AV1_ENCODER=1 \
+		$AOM_EXTRA_FLAGS
+	cmake --build "$AOM_B" -j"$(nproc)"
+	cmake --install "$AOM_B"
+	touch "$AOM_STAMP"
+fi
+
+# 3. libavif static linking against dav1d and aom
 echo "=== building libavif static ===" >&2
 AVIF_B="$B/avif"
-AVIF_STAMP="$INSTALL/lib/.codecs-stamp-libavif-$AVIF_VER"
+AVIF_STAMP="$INSTALL/lib/.codecs-stamp-libavif-$AVIF_VER-aom-$AOM_VER"
 if rebuild_if_stale "$INSTALL/lib/libavif.a" "$AVIF_STAMP"; then
 	rm -rf "$AVIF_B"
 	PKG_CONFIG_PATH="$INSTALL/lib/pkgconfig:${PKG_CONFIG_PATH:-}" \
@@ -101,6 +137,9 @@ if rebuild_if_stale "$INSTALL/lib/libavif.a" "$AVIF_STAMP"; then
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
 		-DAVIF_CODEC_DAV1D=SYSTEM \
+		-DAVIF_CODEC_AOM=SYSTEM \
+		-DAVIF_CODEC_AOM_ENCODE=ON \
+		-DAVIF_CODEC_AOM_DECODE=OFF \
 		-DAVIF_LIBYUV=OFF \
 		-DAVIF_BUILD_APPS=OFF \
 		-DAVIF_BUILD_TESTS=OFF \
@@ -146,15 +185,59 @@ if rebuild_if_stale "$INSTALL/lib/libjxl.a" "$JXL_STAMP"; then
 	touch "$JXL_STAMP"
 fi
 
+# 4. zlib static (libpng's build dependency; linked into codecs.so for PNG ingest)
+echo "=== building zlib static ===" >&2
+ZLIB_B="$B/zlib"
+ZLIB_STAMP="$INSTALL/lib/.codecs-stamp-zlib-$ZLIB_VER"
+if rebuild_if_stale "$INSTALL/lib/libz.a" "$ZLIB_STAMP"; then
+	rm -rf "$ZLIB_B"
+	cmake -S "$ZLIB_SRC" -B "$ZLIB_B" \
+		-DCMAKE_INSTALL_PREFIX="$INSTALL" \
+		-DCMAKE_INSTALL_LIBDIR="lib" \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+		-DZLIB_BUILD_TESTING=OFF \
+		-DZLIB_BUILD_SHARED=OFF \
+		-DZLIB_BUILD_STATIC=ON
+	cmake --build "$ZLIB_B" -j"$(nproc)"
+	cmake --install "$ZLIB_B"
+	touch "$ZLIB_STAMP"
+fi
+
+# 5. libpng static linking against zlib
+echo "=== building libpng static ===" >&2
+PNG_B="$B/png"
+PNG_STAMP="$INSTALL/lib/.codecs-stamp-libpng-$PNG_VER"
+if rebuild_if_stale "$INSTALL/lib/libpng.a" "$PNG_STAMP"; then
+	rm -rf "$PNG_B"
+	cmake -S "$PNG_SRC" -B "$PNG_B" \
+		-DCMAKE_INSTALL_PREFIX="$INSTALL" \
+		-DCMAKE_INSTALL_LIBDIR="lib" \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+		-DPNG_SHARED=OFF \
+		-DPNG_STATIC=ON \
+		-DPNG_TESTS=OFF \
+		-DPNG_TOOLS=OFF \
+		-DPNG_FRAMEWORK=OFF \
+		-DZLIB_ROOT="$INSTALL"
+	cmake --build "$PNG_B" -j"$(nproc)"
+	cmake --install "$PNG_B"
+	touch "$PNG_STAMP"
+fi
+
 echo "ok: vendored static libraries ready in $INSTALL" >&2
 ls -lh "$INSTALL/lib/"*.a >&2
 
-# 4. Build oracle dump tool
+# 6. Build oracle dump tool
 echo "=== building dump-pixels oracle ===" >&2
 gcc -O2 -Wall -Wextra "$ROOT/tools/dump-pixels.c" \
 	-I"$INSTALL/include" \
 	"$INSTALL/lib/libavif.a" \
 	"$INSTALL/lib/libdav1d.a" \
+	"$INSTALL/lib/libaom.a" \
 	"$INSTALL/lib/libjxl.a" \
 	"$INSTALL/lib/libjxl_cms.a" \
 	"$INSTALL/lib/libhwy.a" \

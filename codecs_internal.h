@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Ceilings (from the design record §4) */
+/* Resource ceilings */
 #define CODECS_DEFAULT_MAX_DIMENSION 16384
 #define CODECS_DEFAULT_MAX_PIXELS (16ULL * 1024ULL * 1024ULL) /* 16 M px, covers 4032x3024 iPhone photo */
 #define CODECS_DEFAULT_MAX_INPUT_BYTES (256ULL * 1024ULL * 1024ULL)
@@ -149,10 +149,15 @@ bool codecs_avif_probe(const uint8_t *data, size_t size, zval *info_zv);
 codecs_image_object *codecs_jxl_decode(const uint8_t *data, size_t size, zval *options_zv);
 bool codecs_jxl_probe(const uint8_t *data, size_t size, zval *return_value);
 
-/* Container sniffing: CODECS_FMT_AVIF, CODECS_FMT_JXL, or CODECS_FMT_UNKNOWN */
+/* PNG on-ramp (vendored libpng): Image::fromPng / toPng backend */
+codecs_image_object *codecs_png_decode(const uint8_t *data, size_t size, zval *options_zv);
+zend_string *codecs_png_encode(const codecs_image_object *img);
+
+/* Container sniffing: CODECS_FMT_AVIF, CODECS_FMT_JXL, CODECS_FMT_PNG, or CODECS_FMT_UNKNOWN */
 #define CODECS_FMT_UNKNOWN 0
 #define CODECS_FMT_AVIF 1
 #define CODECS_FMT_JXL 2
+#define CODECS_FMT_PNG 3
 int codecs_detect_format(const uint8_t *data, size_t size);
 
 #endif /* CODECS_INTERNAL_H */

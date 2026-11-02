@@ -15,6 +15,7 @@
 #include "zend_enum.h"
 #include "codecs_internal.h"
 #include <string.h>
+#include <dlfcn.h>
 
 PHP_METHOD(Codecs_Image, fromPixels);
 PHP_METHOD(Codecs_Image, fromPng);
@@ -197,24 +198,244 @@ ZEND_METHOD(Codecs_Image, fromPng)
 	Z_PARAM_STR(png)
 	ZEND_PARSE_PARAMETERS_END();
 
-	(void)png;
-	(void)return_value;
-	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "fromPng() is not yet implemented in this milestone");
+	codecs_image_object *img = codecs_png_decode((const uint8_t *)ZSTR_VAL(png), ZSTR_LEN(png), NULL);
+	if (!img) {
+		RETURN_THROWS();
+	}
+
+	RETURN_OBJ(&img->std);
 }
+
+#define CODECS_GD_MAX_COLORS 256
+
+typedef struct codecs_gd_image_struct {
+	unsigned char **pixels;
+	int sx;
+	int sy;
+	int colorsTotal;
+	int red[CODECS_GD_MAX_COLORS];
+	int green[CODECS_GD_MAX_COLORS];
+	int blue[CODECS_GD_MAX_COLORS];
+	int open[CODECS_GD_MAX_COLORS];
+	int transparent;
+	int *polyInts;
+	int polyAllocated;
+	struct codecs_gd_image_struct *brush;
+	struct codecs_gd_image_struct *tile;
+	int brushColorMap[CODECS_GD_MAX_COLORS];
+	int tileColorMap[CODECS_GD_MAX_COLORS];
+	int styleLength;
+	int stylePos;
+	int *style;
+	int interlace;
+	int thick;
+	int alpha[CODECS_GD_MAX_COLORS];
+	int trueColor;
+	int **tpixels;
+} codecs_gd_image;
+
+typedef codecs_gd_image *(*codecs_gd_fetch_image_fn_t)(zval *);
+static codecs_gd_fetch_image_fn_t s_php_gd_fetch_image_fn = (codecs_gd_fetch_image_fn_t)(intptr_t)-1;
 
 ZEND_METHOD(Codecs_Image, fromGd)
 {
-	zval *gd;
+	zval *gd_zv;
 
 	ZEND_PARSE_PARAMETERS_START(1, 1)
-	Z_PARAM_OBJECT(gd)
+	Z_PARAM_OBJECT(gd_zv)
 	ZEND_PARSE_PARAMETERS_END();
 
-	(void)gd;
-	(void)return_value;
-	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "fromGd() is not yet implemented in this milestone");
+	zend_class_entry *gd_ce = zend_hash_str_find_ptr(CG(class_table), "gdimage", sizeof("gdimage") - 1);
+	if (!gd_ce) {
+		zend_throw_error(NULL, "ext/gd is required to import GD images");
+		RETURN_THROWS();
+	}
+
+	if (!instanceof_function(Z_OBJCE_P(gd_zv), gd_ce)) {
+		zend_type_error("Argument #1 ($gd) must be an instance of GdImage, %s given",
+						ZSTR_VAL(Z_OBJCE_P(gd_zv)->name));
+		RETURN_THROWS();
+	}
+
+	/* Process-level symbol caching with fallback to standard PHP 8 php_image_object struct offset */
+	codecs_gd_fetch_image_fn_t fn = (codecs_gd_fetch_image_fn_t)__atomic_load_n(&s_php_gd_fetch_image_fn, __ATOMIC_RELAXED);
+	if (fn == (codecs_gd_fetch_image_fn_t)(intptr_t)-1) {
+		fn = (codecs_gd_fetch_image_fn_t)dlsym(RTLD_DEFAULT, "php_gd_libgdimageptr_from_zval_p");
+		__atomic_store_n(&s_php_gd_fetch_image_fn, fn, __ATOMIC_RELAXED);
+	}
+
+	codecs_gd_image *im = NULL;
+	if (fn != NULL) {
+		im = fn(gd_zv);
+	} else {
+		im = ((codecs_gd_image **)Z_OBJ_P(gd_zv))[-1];
+	}
+
+	if (!im) {
+		zend_throw_error(NULL, "Uninitialized or closed GdImage object");
+		RETURN_THROWS();
+	}
+
+	/* Validate non-positive dimensions on raw signed fields before unsigned cast */
+	if (im->sx <= 0 || im->sy <= 0) {
+		codecs_throw(codecs_corrupt_data_exception_ce, CODECS_ERR_BITSTREAM,
+					 "GD image has invalid non-positive dimensions (%dx%d)", im->sx, im->sy);
+		RETURN_THROWS();
+	}
+
+	uint32_t width = (uint32_t)im->sx;
+	uint32_t height = (uint32_t)im->sy;
+
+	if ((int64_t)width > CODECS_G(max_dimension) || (int64_t)height > CODECS_G(max_dimension)) {
+		codecs_throw(codecs_limit_exception_ce, CODECS_ERR_DIMENSION,
+					 "GD image dimensions (%ux%u) exceed max dimension limit (%ld)",
+					 width, height, CODECS_G(max_dimension));
+		RETURN_THROWS();
+	}
+
+	uint64_t pixel_count = (uint64_t)width * (uint64_t)height;
+	if (pixel_count > (uint64_t)CODECS_G(max_pixels)) {
+		codecs_throw(codecs_limit_exception_ce, CODECS_ERR_PIXELS,
+					 "GD image pixel count (%llu) exceeds max pixels limit (%llu)",
+					 (unsigned long long)pixel_count, (unsigned long long)CODECS_G(max_pixels));
+		RETURN_THROWS();
+	}
+
+	uint64_t pixel_bytes = pixel_count * 8ULL;
+	/* Guard 32-bit SIZE_MAX and configured memory budget */
+	if (pixel_bytes > (uint64_t)CODECS_G(memory_budget) || pixel_bytes > (uint64_t)SIZE_MAX) {
+		codecs_throw(codecs_limit_exception_ce, CODECS_ERR_LIMIT,
+					 "GD image memory requirement (%llu bytes) exceeds memory budget (%ld bytes)",
+					 (unsigned long long)pixel_bytes, CODECS_G(memory_budget));
+		RETURN_THROWS();
+	}
+
+	uint16_t *pixels = emalloc(pixel_bytes);
+	bool success = false;
+	char err_msg[128] = "";
+
+	/* Bailout safety guard ensuring pixel buffer release on PHP timeout or abort */
+	zend_try
+	{
+		if (im->trueColor) {
+			if (!im->tpixels) {
+				snprintf(err_msg, sizeof(err_msg), "GD truecolor buffer is not initialized");
+			} else {
+				success = true;
+				for (uint32_t y = 0; y < height; y++) {
+					const int *row = im->tpixels[y];
+					/* Validate row pointer not NULL */
+					if (!row) {
+						success = false;
+						snprintf(err_msg, sizeof(err_msg), "Corrupted GD truecolor buffer at row %u", y);
+						break;
+					}
+					uint16_t *dst_row = pixels + (size_t)y * width * 4;
+					for (uint32_t x = 0; x < width; x++) {
+						int p = row[x];
+						int a7 = (p >> 24) & 0x7F;
+						/* Defensive clamping of alpha values */
+						if (a7 < 0) {
+							a7 = 0;
+						} else if (a7 > 127) {
+							a7 = 127;
+						}
+
+						uint8_t r8 = (uint8_t)((p >> 16) & 0xFF);
+						uint8_t g8 = (uint8_t)((p >> 8) & 0xFF);
+						uint8_t b8 = (uint8_t)(p & 0xFF);
+
+						dst_row[x * 4 + 0] = (uint16_t)((r8 << 8) | r8);
+						dst_row[x * 4 + 1] = (uint16_t)((g8 << 8) | g8);
+						dst_row[x * 4 + 2] = (uint16_t)((b8 << 8) | b8);
+						dst_row[x * 4 + 3] = (uint16_t)(((127 - a7) * 65535ULL + 63ULL) / 127ULL);
+					}
+				}
+			}
+		} else {
+			if (!im->pixels) {
+				snprintf(err_msg, sizeof(err_msg), "GD palette buffer is not initialized");
+			} else {
+				/* Pre-compute 256-entry RGBA16 LUT */
+				uint16_t palette_lut[256][4];
+				int transparent = im->transparent;
+				int total_colors = im->colorsTotal > 256 ? 256 : (im->colorsTotal < 0 ? 0 : im->colorsTotal);
+
+				for (int i = 0; i < 256; i++) {
+					if (i < total_colors) {
+						uint8_t r8 = (uint8_t)im->red[i];
+						uint8_t g8 = (uint8_t)im->green[i];
+						uint8_t b8 = (uint8_t)im->blue[i];
+						int a7 = (i == transparent) ? 127 : im->alpha[i];
+						if (a7 < 0) {
+							a7 = 0;
+						} else if (a7 > 127) {
+							a7 = 127;
+						}
+
+						palette_lut[i][0] = (uint16_t)((r8 << 8) | r8);
+						palette_lut[i][1] = (uint16_t)((g8 << 8) | g8);
+						palette_lut[i][2] = (uint16_t)((b8 << 8) | b8);
+						palette_lut[i][3] = (uint16_t)(((127 - a7) * 65535ULL + 63ULL) / 127ULL);
+					} else {
+						palette_lut[i][0] = 0;
+						palette_lut[i][1] = 0;
+						palette_lut[i][2] = 0;
+						palette_lut[i][3] = 0;
+					}
+				}
+
+				success = true;
+				for (uint32_t y = 0; y < height; y++) {
+					const unsigned char *row = im->pixels[y];
+					/* Validate row pointer not NULL */
+					if (!row) {
+						success = false;
+						snprintf(err_msg, sizeof(err_msg), "Corrupted GD palette buffer at row %u", y);
+						break;
+					}
+					uint16_t *dst_row = pixels + (size_t)y * width * 4;
+					for (uint32_t x = 0; x < width; x++) {
+						memcpy(&dst_row[x * 4], palette_lut[row[x]], sizeof(uint16_t) * 4);
+					}
+				}
+			}
+		}
+
+		if (success) {
+			object_init_ex(return_value, codecs_image_ce);
+			codecs_image_object *out = Z_CODECS_IMAGE_P(return_value);
+			out->pixels = pixels;
+			pixels = NULL; /* Ownership transferred to Zend object dtor */
+			out->width = width;
+			out->height = height;
+			out->bit_depth = 8;
+			out->alpha_mode = 0; /* straight */
+			out->provenance = estrdup("gd");
+			out->orientation = 1; /* TopLeft */
+			out->cicp.colour_primaries = 1;
+			out->cicp.transfer_characteristics = 13;
+			out->cicp.matrix_coefficients = 0;
+			out->cicp.full_range = true;
+		}
+	}
+	zend_catch
+	{
+		if (pixels) {
+			efree(pixels);
+		}
+		zend_bailout();
+	}
+	zend_end_try();
+
+	if (!success) {
+		if (pixels) {
+			efree(pixels);
+		}
+		codecs_throw(codecs_corrupt_data_exception_ce, CODECS_ERR_BITSTREAM,
+					 "%s", err_msg[0] ? err_msg : "Failed to import GD image");
+		RETURN_THROWS();
+	}
 }
 
 ZEND_METHOD(Codecs_Image, width)
@@ -375,12 +596,14 @@ ZEND_METHOD(Codecs_Image, close)
 ZEND_METHOD(Codecs_Image, toPng)
 {
 	ZEND_PARSE_PARAMETERS_NONE();
-	(void)return_value;
 	codecs_image_object *img = Z_CODECS_IMAGE_P(ZEND_THIS);
 	CHECK_IMAGE_NOT_CLOSED(img);
 
-	codecs_throw(codecs_unsupported_format_exception_ce, CODECS_ERR_UNSUPPORTED,
-				 "toPng() is not yet implemented in this milestone");
+	zend_string *png = codecs_png_encode(img);
+	if (!png) {
+		RETURN_THROWS();
+	}
+	RETURN_STR(png);
 }
 
 ZEND_METHOD(Codecs_Image, rgba16)

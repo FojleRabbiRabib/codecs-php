@@ -33,9 +33,6 @@ never committed** — `vendor-src/` is gitignored because it is reproducible fro
 | `package.xml` | PECL/PIE package manifest |
 | `composer.json` | PIE (`type: php-ext`) and dev-tooling manifest |
 
-Files in the repository root that are planning or research records stay **untracked and never
-committed**. Product manuals live in `docs/` when shipped.
-
 ## Engineering rules
 
 - **PHP 8.3+ only** — no PHP 5/7-era extension patterns. Multi-ABI order: **8.3 first**, then 8.4
@@ -50,18 +47,6 @@ committed**. Product manuals live in `docs/` when shipped.
 - **Fidelity gate:** decoded/encoded output must match the upstream CLI binaries (`avifdec`/
   `avifenc`, `djxl`/`cjxl`) built from the same vendored tree, alongside the adversarial bitstream
   safety suite.
-
-## Conventions
-
-- **Zero AI attribution** in commits or PRs — no `Co-Authored-By` trailer, no `Generated with`
-  footer.
-- Commit messages: 3-block Conventional Commits with scope (`codecs`, `ext`, `ci`, `build`,
-  `installer`, `release`, `docs`, `usage`).
-- Commits are **local**; remote delivery is entirely the owner's business — the word "push" is not
-  used here, and only an explicit instruction to commit authorizes one.
-- Planning and design notes live in the project root, **untracked** — never committed; their names
-  are listed in `.git/info/exclude` (never `.gitignore`), and they are never referenced by name from
-  tracked files.
 
 ## Licence and attribution
 
