@@ -15,6 +15,7 @@
 #include "ext/standard/info.h"
 #include "avif/avif.h"
 #include "dav1d/dav1d.h"
+#include "aom/aom_codec.h"
 #include "jxl/decode.h"
 #include "png.h"
 #include "zlib.h"
@@ -89,7 +90,7 @@ ZEND_METHOD(Codecs_Codec, versions)
 	add_assoc_string(return_value, "codecs_php", PHP_CODECS_VERSION);
 	add_assoc_string(return_value, "libavif", avifVersion());
 	add_assoc_string(return_value, "dav1d", dav1d_version());
-	add_assoc_string(return_value, "aom", "not_compiled");
+	add_assoc_string(return_value, "aom", aom_codec_version_str());
 
 	char jxl_version[32];
 	uint32_t jv = JxlDecoderVersion();
@@ -554,6 +555,7 @@ PHP_MINFO_FUNCTION(codecs)
 	php_info_print_table_row(2, "Extension version", PHP_CODECS_VERSION);
 	php_info_print_table_row(2, "libavif version", avifVersion());
 	php_info_print_table_row(2, "dav1d version", dav1d_version());
+	php_info_print_table_row(2, "libaom version", aom_codec_version_str());
 	php_info_print_table_row(2, "libjxl version", jxl_ver);
 	php_info_print_table_row(2, "libpng version", png_libpng_ver);
 	php_info_print_table_row(2, "zlib version", zlibVersion());

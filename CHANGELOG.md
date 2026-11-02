@@ -9,6 +9,8 @@ pinned vendored upstream codec versions recorded in the tag message,
 ## [Unreleased]
 
 ### Added
+- Vendored libaom 3.9.1 as the static AV1 encoding backend for libavif.
+- Dynamic reporting of libaom version in `Codecs\Codec::versions()` and `phpinfo()`.
 - Native GD on-ramp via `Codecs\Image::fromGd()` supporting both truecolor and palette `GdImage` objects with straight-alpha normalization and zero compile-time link dependency on ext/gd.
 - Phpt test case `012-gd-onramp.phpt` asserting GD truecolor, palette, transparency, and resource limit enforcement.
 - PNG on-ramp via vendored libpng 1.6.59 and zlib 1.3.2: `Codecs\Image::fromPng()` and `Codecs\Image::toPng()` implementing the enforced supported-PNG subset (non-interlaced truecolor, palette expansion, tRNS alpha composition).

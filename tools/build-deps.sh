@@ -44,6 +44,7 @@ pin_source() {
 "$ROOT/tools/fetch-codecs.sh"
 
 DAV1D_SRC="$(pin_source dav1d)"
+AOM_SRC="$(pin_source aom)"
 AVIF_SRC="$(pin_source libavif)"
 JXL_SRC="$(pin_source libjxl)"
 HWY_SRC="$(pin_source highway)"
@@ -53,6 +54,7 @@ ZLIB_SRC="$(pin_source zlib)"
 PNG_SRC="$(pin_source libpng)"
 
 DAV1D_VER="$(pin_version dav1d)"
+AOM_VER="$(pin_version aom)"
 AVIF_VER="$(pin_version libavif)"
 JXL_VER="$(pin_version libjxl)"
 ZLIB_VER="$(pin_version zlib)"
@@ -91,10 +93,40 @@ if rebuild_if_stale "$INSTALL/lib/libdav1d.a" "$DAV1D_STAMP"; then
 	touch "$DAV1D_STAMP"
 fi
 
-# 2. libavif static linking against dav1d
+# 2. aom static (AV1 encoder backend)
+echo "=== building aom static ===" >&2
+AOM_B="$B/aom"
+AOM_STAMP="$INSTALL/lib/.codecs-stamp-aom-$AOM_VER"
+if rebuild_if_stale "$INSTALL/lib/libaom.a" "$AOM_STAMP"; then
+	rm -rf "$AOM_B"
+	AOM_EXTRA_FLAGS=""
+	if ! command -v nasm >/dev/null 2>&1 && ! command -v yasm >/dev/null 2>&1; then
+		AOM_EXTRA_FLAGS="-DAOM_TARGET_CPU=generic"
+		echo "note: nasm/yasm not found, building aom with AOM_TARGET_CPU=generic" >&2
+	fi
+	cmake -S "$AOM_SRC" -B "$AOM_B" \
+		-DCMAKE_INSTALL_PREFIX="$INSTALL" \
+		-DCMAKE_INSTALL_LIBDIR="lib" \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+		-DENABLE_DOCS=OFF \
+		-DENABLE_EXAMPLES=OFF \
+		-DENABLE_TESTDATA=OFF \
+		-DENABLE_TESTS=OFF \
+		-DENABLE_TOOLS=OFF \
+		-DCONFIG_AV1_DECODER=0 \
+		-DCONFIG_AV1_ENCODER=1 \
+		$AOM_EXTRA_FLAGS
+	cmake --build "$AOM_B" -j"$(nproc)"
+	cmake --install "$AOM_B"
+	touch "$AOM_STAMP"
+fi
+
+# 3. libavif static linking against dav1d and aom
 echo "=== building libavif static ===" >&2
 AVIF_B="$B/avif"
-AVIF_STAMP="$INSTALL/lib/.codecs-stamp-libavif-$AVIF_VER"
+AVIF_STAMP="$INSTALL/lib/.codecs-stamp-libavif-$AVIF_VER-aom-$AOM_VER"
 if rebuild_if_stale "$INSTALL/lib/libavif.a" "$AVIF_STAMP"; then
 	rm -rf "$AVIF_B"
 	PKG_CONFIG_PATH="$INSTALL/lib/pkgconfig:${PKG_CONFIG_PATH:-}" \
@@ -105,6 +137,9 @@ if rebuild_if_stale "$INSTALL/lib/libavif.a" "$AVIF_STAMP"; then
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_POSITION_INDEPENDENT_CODE=ON \
 		-DAVIF_CODEC_DAV1D=SYSTEM \
+		-DAVIF_CODEC_AOM=SYSTEM \
+		-DAVIF_CODEC_AOM_ENCODE=ON \
+		-DAVIF_CODEC_AOM_DECODE=OFF \
 		-DAVIF_LIBYUV=OFF \
 		-DAVIF_BUILD_APPS=OFF \
 		-DAVIF_BUILD_TESTS=OFF \
@@ -202,6 +237,7 @@ gcc -O2 -Wall -Wextra "$ROOT/tools/dump-pixels.c" \
 	-I"$INSTALL/include" \
 	"$INSTALL/lib/libavif.a" \
 	"$INSTALL/lib/libdav1d.a" \
+	"$INSTALL/lib/libaom.a" \
 	"$INSTALL/lib/libjxl.a" \
 	"$INSTALL/lib/libjxl_cms.a" \
 	"$INSTALL/lib/libhwy.a" \

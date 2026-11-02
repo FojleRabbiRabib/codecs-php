@@ -56,6 +56,10 @@ if test "$PHP_CODECS" != "no"; then
   if test -f "$CODECS_VENDOR_INSTALL/lib/libdav1d.a"; then
     CODECS_STATIC_LIBS="$CODECS_STATIC_LIBS $CODECS_VENDOR_INSTALL/lib/libdav1d.a"
   fi
+  if test ! -f "$CODECS_VENDOR_INSTALL/lib/libaom.a"; then
+    AC_MSG_ERROR([vendored libaom.a missing at $CODECS_VENDOR_INSTALL/lib/libaom.a; run tools/build-deps.sh first])
+  fi
+  CODECS_STATIC_LIBS="$CODECS_STATIC_LIBS $CODECS_VENDOR_INSTALL/lib/libaom.a"
   for jxl_lib in libjxl.a libjxl_cms.a libjxl_threads.a libhwy.a libbrotlienc.a libbrotlidec.a libbrotlicommon.a; do
     if test -f "$CODECS_VENDOR_INSTALL/lib/$jxl_lib"; then
       CODECS_STATIC_LIBS="$CODECS_STATIC_LIBS $CODECS_VENDOR_INSTALL/lib/$jxl_lib"
